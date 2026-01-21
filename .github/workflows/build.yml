@@ -43,21 +43,25 @@ jobs:
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
           
-          # Move Flutter bundle to AppDir bin
-          mv build/linux/x64/release/bundle/* AppDir/usr/bin/
-          rm -rf build/ # Clear space
+          # 1. Flutter Bundle
+          cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
+          rm -rf build/
           
-          # Bundle CEF - Move libcef.so to usr/lib
-          mv AppDir/usr/bin/lib/* AppDir/usr/lib/
-          rmdir AppDir/usr/bin/lib
+          # 2. Extract and Move Libs
+          # Move libflutter_linux_gtk.so etc to usr/lib
+          mv AppDir/usr/bin/lib/* AppDir/usr/lib/ 2>/dev/null || true
+          rmdir AppDir/usr/bin/lib 2>/dev/null || true
           
-          # Move libapp.so to usr/lib
+          # Move libapp.so specifically to usr/lib
           find AppDir/usr/bin -name "libapp.so" -exec mv {} AppDir/usr/lib/ \;
           
-          cp -P -r linux/cef/sdk/Release/libcef.so AppDir/usr/lib/
-          cp -P -r linux/cef/sdk/Resources/* AppDir/usr/bin/
+          # 3. CEF Components
+          # Copy only the SO libs to usr/lib
+          cp -P linux/cef/sdk/Release/*.so* AppDir/usr/lib/
+          # Copy Resources to usr/bin (where the executable is)
+          cp -r linux/cef/sdk/Resources/* AppDir/usr/bin/
           
-          # Create Desktop Entry
+          # 4. Desktop Entry
           cat > AppDir/danger_browser.desktop <<EOF
           [Desktop Entry]
           Name=DangerBrowser
@@ -67,26 +71,25 @@ jobs:
           Categories=Network;WebBrowser;
           EOF
           
-          # Create AppRun script - Absolute paths inside AppImage
+          # 5. AppRun script
           cat > AppDir/AppRun <<EOF
           #!/bin/sh
-          HERE="\$(dirname "\$(readlink -f "\$0")")"
-          export PATH="\$HERE/usr/bin:\$PATH"
-          export LD_LIBRARY_PATH="\$HERE/usr/lib:\$HERE/usr/bin/lib:\$HERE/usr/bin:\$LD_LIBRARY_PATH"
+          HERE="$(dirname "$(readlink -f "$0")")"
+          export PATH="$HERE/usr/bin:$PATH"
+          # Priority: usr/lib (CEF + Flutter libs)
+          export LD_LIBRARY_PATH="$HERE/usr/lib:$LD_LIBRARY_PATH"
           
-          # Debug: check if libapp exists
-          if [ ! -f "\$HERE/usr/lib/libapp.so" ]; then
-            echo "Error: \$HERE/usr/lib/libapp.so not found"
-            exit 1
-          fi
-          
-          exec "\$HERE/usr/bin/danger_browser" --aot-shared-library-name="\$HERE/usr/lib/libapp.so" "\$@"
+          # Run Flutter app with explicit AOT path
+          exec "$HERE/usr/bin/danger_browser" --aot-shared-library-name="$HERE/usr/lib/libapp.so" "$@"
           EOF
           chmod +x AppDir/AppRun
           
-          # Use placeholder icon
+          # 6. Icon
           cp web/icons/Icon-192.png AppDir/danger_browser.png
           cp web/icons/Icon-192.png AppDir/usr/share/icons/hicolor/256x256/apps/danger_browser.png
+          
+          echo "Final AppDir structure:"
+          find AppDir -maxdepth 3
 
       - name: Build AppImage
         run: |
