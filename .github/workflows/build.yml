@@ -76,10 +76,10 @@ jobs:
           #!/bin/sh
           HERE="$(dirname "$(readlink -f "$0")")"
           export PATH="$HERE/usr/bin:$PATH"
-          # Priority: usr/lib (CEF + Flutter libs)
-          export LD_LIBRARY_PATH="$HERE/usr/lib:$LD_LIBRARY_PATH"
+          export LD_LIBRARY_PATH="$HERE/usr/lib:$HERE/usr/bin/lib:$LD_LIBRARY_PATH"
           
-          # Run Flutter app with explicit AOT path
+          echo "Launching from $HERE"
+          # Use explicit absolute path inside AppImage
           exec "$HERE/usr/bin/danger_browser" --aot-shared-library-name="$HERE/usr/lib/libapp.so" "$@"
           EOF
           chmod +x AppDir/AppRun
