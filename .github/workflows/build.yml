@@ -46,6 +46,10 @@ jobs:
           # Copy Flutter bundle to AppDir
           cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
           
+          # Copy CEF SDK release files to usr/lib
+          cp -r linux/cef/sdk/Release/* AppDir/usr/lib/
+          cp -r linux/cef/sdk/Resources/* AppDir/usr/bin/
+          
           # Create Desktop Entry
           cat > AppDir/danger_browser.desktop <<EOF
           [Desktop Entry]
@@ -59,11 +63,11 @@ jobs:
           # Create AppRun script
           cat > AppDir/AppRun <<EOF
           #!/bin/sh
-          SELF=$(readlink -f "$0")
-          HERE=${SELF%/*}
-          export PATH="$HERE/usr/bin:$PATH"
-          export LD_LIBRARY_PATH="$HERE/usr/bin/lib:$HERE/usr/bin:$LD_LIBRARY_PATH"
-          exec "$HERE/usr/bin/danger_browser" "$@"
+          SELF=\$(readlink -f "\$0")
+          HERE=\${SELF%/*}
+          export PATH="\$HERE/usr/bin:\$PATH"
+          export LD_LIBRARY_PATH="\$HERE/usr/bin/lib:\$HERE/usr/lib:\$HERE/usr/bin:\$LD_LIBRARY_PATH"
+          exec "\$HERE/usr/bin/danger_browser" "\$@"
           EOF
           chmod +x AppDir/AppRun
           
