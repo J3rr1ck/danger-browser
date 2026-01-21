@@ -47,16 +47,15 @@ jobs:
           mv build/linux/x64/release/bundle/* AppDir/usr/bin/
           rm -rf build/ # Clear space
           
-          # Bundle CEF - Move libcef.so to usr/lib to avoid redundancy
-          # Move everything else to usr/bin (Resources like .pak files)
+          # Bundle CEF - Move libcef.so to usr/lib
           mv AppDir/usr/bin/lib/* AppDir/usr/lib/
           rmdir AppDir/usr/bin/lib
           
-          # Move libapp.so to usr/lib if it's not already there
+          # Move libapp.so to usr/lib
           find AppDir/usr/bin -name "libapp.so" -exec mv {} AppDir/usr/lib/ \;
           
-          cp -r linux/cef/sdk/Release/libcef.so AppDir/usr/lib/
-          cp -r linux/cef/sdk/Resources/* AppDir/usr/bin/
+          cp -P -r linux/cef/sdk/Release/libcef.so AppDir/usr/lib/
+          cp -P -r linux/cef/sdk/Resources/* AppDir/usr/bin/
           
           # Create Desktop Entry
           cat > AppDir/danger_browser.desktop <<EOF
@@ -68,14 +67,19 @@ jobs:
           Categories=Network;WebBrowser;
           EOF
           
-          # Create AppRun script
+          # Create AppRun script - Absolute paths inside AppImage
           cat > AppDir/AppRun <<EOF
           #!/bin/sh
-          SELF=\$(readlink -f "\$0")
-          HERE=\${SELF%/*}
+          HERE="\$(dirname "\$(readlink -f "\$0")")"
           export PATH="\$HERE/usr/bin:\$PATH"
           export LD_LIBRARY_PATH="\$HERE/usr/lib:\$HERE/usr/bin/lib:\$HERE/usr/bin:\$LD_LIBRARY_PATH"
-          # Ensure libapp.so is found by the engine
+          
+          # Debug: check if libapp exists
+          if [ ! -f "\$HERE/usr/lib/libapp.so" ]; then
+            echo "Error: \$HERE/usr/lib/libapp.so not found"
+            exit 1
+          fi
+          
           exec "\$HERE/usr/bin/danger_browser" --aot-shared-library-name="\$HERE/usr/lib/libapp.so" "\$@"
           EOF
           chmod +x AppDir/AppRun
