@@ -1,0 +1,103 @@
+#include "cef_manager.h"
+#include "cef_key_mapping.h"
+#include <iostream>
+#include <gtk/gtk.h>
+
+extern "C" gboolean processKeyEventForCEF(GtkWidget* widget, GdkEventKey* event, gpointer data) {
+  return CefManager::GetInstance()->OnKeyEvent(event);
+}
+
+CefManager* CefManager::instance_ = nullptr;
+
+CefManager* CefManager::GetInstance() {
+  if (!instance_) {
+    instance_ = new CefManager();
+  }
+  return instance_;
+}
+
+CefManager::CefManager() : registrar_(nullptr) {}
+
+static int GetCefModifiers(guint state) {
+  int modifiers = 0;
+  if (state & GDK_SHIFT_MASK) modifiers |= EVENTFLAG_SHIFT_DOWN;
+  if (state & GDK_CONTROL_MASK) modifiers |= EVENTFLAG_CONTROL_DOWN;
+  if (state & GDK_MOD1_MASK) modifiers |= EVENTFLAG_ALT_DOWN;
+  return modifiers;
+}
+
+// Map logical key ID to Windows Virtual Key (VK) codes
+static int MapLogicalToWindowsKey(int64_t key_code) {
+  if (key_code >= 0x20 && key_code <= 0x7E) {
+    // Basic printable ASCII
+    if (key_code >= 'a' && key_code <= 'z') return key_code - 'a' + 'A';
+    return key_code;
+  }
+  
+  // Mask Flutter logical key offset
+  int64_t masked = key_code & 0xFFFFFFFF;
+  switch (masked) {
+    case 0x08: return 0x08; // Backspace
+    case 0x09: return 0x09; // Tab
+    case 0x0d: return 0x0D; // Enter
+    case 0x1b: return 0x1B; // Escape
+    case 0x20: return 0x20; // Space
+    case 0x25: return 0x25; // Left
+    case 0x26: return 0x26; // Up
+    case 0x27: return 0x27; // Right
+    case 0x28: return 0x28; // Down
+    case 0x2e: return 0x2E; // Delete
+    default: return 0;
+  }
+}
+
+void CefManager::OnKeyEventFromDart(FlMethodCall* method_call) {
+  FlValue* args = fl_method_call_get_args(method_call);
+  int64_t texture_id = fl_value_get_int(fl_value_lookup_string(args, "textureId"));
+  int type = fl_value_get_int(fl_value_lookup_string(args, "type")); // 0: down, 1: up
+  int64_t key_code = fl_value_get_int(fl_value_lookup_string(args, "keyCode"));
+  int64_t scan_code = fl_value_get_int(fl_value_lookup_string(args, "scanCode"));
+  int64_t modifiers = fl_value_get_int(fl_value_lookup_string(args, "modifiers"));
+  
+  FlValue* char_val = fl_value_lookup_string(args, "character");
+  const gchar* character = (char_val && fl_value_get_type(char_val) == FL_VALUE_TYPE_STRING) 
+                           ? fl_value_get_string(char_val) 
+                           : nullptr;
+
+  if (handlers_.count(texture_id)) {
+    auto browser = handlers_[texture_id]->GetBrowser();
+    if (browser) {
+      CefKeyEvent cef_event;
+      cef_event.modifiers = modifiers;
+      cef_event.native_key_code = scan_code;
+      cef_event.windows_key_code = MapLogicalToWindowsKey(key_code);
+
+      CefPostTask(TID_UI, CefCreateClosureTask(base::BindOnce([](CefRefPtr<CefBrowser> browser, CefKeyEvent cef_event, int type, std::string char_str) {
+        // Essential: Signal focus before event
+        browser->GetHost()->SendFocusEvent(true);
+        
+        if (type == 0) {
+          cef_event.type = KEYEVENT_RAWKEYDOWN;
+          browser->GetHost()->SendKeyEvent(cef_event);
+          
+          if (!char_str.empty()) {
+            cef_event.type = KEYEVENT_CHAR;
+            cef_event.windows_key_code = (int)char_str[0];
+            cef_event.character = (int)char_str[0];
+            browser->GetHost()->SendKeyEvent(cef_event);
+          }
+        } else {
+          cef_event.type = KEYEVENT_KEYUP;
+          browser->GetHost()->SendKeyEvent(cef_event);
+        }
+      }, browser, cef_event, type, character ? std::string(character) : "")));
+      
+      fl_method_call_respond_success(method_call, nullptr, nullptr);
+      return;
+    }
+  }
+  fl_method_call_respond_error(method_call, "failed", "Could not send key event", nullptr, nullptr);
+}
+
+// ... rest of cef_manager.cc remains similar but needs updating too ...
+// I will rewrite the whole file now to be sure.
