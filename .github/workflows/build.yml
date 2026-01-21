@@ -43,15 +43,16 @@ jobs:
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
           
-          echo "Listing build bundle:"
-          ls -R build/linux/x64/release/bundle/
+          # Move Flutter bundle to AppDir bin
+          mv build/linux/x64/release/bundle/* AppDir/usr/bin/
+          rm -rf build/ # Clear space
           
-          # Copy Flutter bundle to AppDir
-          cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
+          # Bundle CEF - Move libcef.so to usr/lib to avoid redundancy
+          # Move everything else to usr/bin (Resources like .pak files)
+          mv AppDir/usr/bin/lib/* AppDir/usr/lib/
+          rmdir AppDir/usr/bin/lib
           
-          # Copy CEF SDK release files to usr/lib
-          echo "Copying CEF libs..."
-          cp -r linux/cef/sdk/Release/* AppDir/usr/lib/
+          cp -r linux/cef/sdk/Release/libcef.so AppDir/usr/lib/
           cp -r linux/cef/sdk/Resources/* AppDir/usr/bin/
           
           # Create Desktop Entry
@@ -70,20 +71,18 @@ jobs:
           SELF=\$(readlink -f "\$0")
           HERE=\${SELF%/*}
           export PATH="\$HERE/usr/bin:\$PATH"
-          export LD_LIBRARY_PATH="\$HERE/usr/bin/lib:\$HERE/usr/lib:\$HERE/usr/bin:\$LD_LIBRARY_PATH"
+          export LD_LIBRARY_PATH="\$HERE/usr/lib:\$HERE/usr/bin:\$LD_LIBRARY_PATH"
           exec "\$HERE/usr/bin/danger_browser" "\$@"
           EOF
           chmod +x AppDir/AppRun
           
-          echo "AppRun content:"
-          cat AppDir/AppRun
-          
-          # Use a placeholder icon from Flutter web assets for now
+          # Use placeholder icon
           cp web/icons/Icon-192.png AppDir/danger_browser.png
           cp web/icons/Icon-192.png AppDir/usr/share/icons/hicolor/256x256/apps/danger_browser.png
 
       - name: Build AppImage
         run: |
+          rm -rf linux/cef/sdk/ # Free massive space before mksquashfs
           wget -O appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x appimagetool
           ./appimagetool --appimage-extract-and-run AppDir DangerBrowser-x86_64.AppImage
