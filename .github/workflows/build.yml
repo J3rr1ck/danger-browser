@@ -43,10 +43,14 @@ jobs:
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
           
+          echo "Listing build bundle:"
+          ls -R build/linux/x64/release/bundle/
+          
           # Copy Flutter bundle to AppDir
           cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
           
           # Copy CEF SDK release files to usr/lib
+          echo "Copying CEF libs..."
           cp -r linux/cef/sdk/Release/* AppDir/usr/lib/
           cp -r linux/cef/sdk/Resources/* AppDir/usr/bin/
           
@@ -71,6 +75,9 @@ jobs:
           EOF
           chmod +x AppDir/AppRun
           
+          echo "AppRun content:"
+          cat AppDir/AppRun
+          
           # Use a placeholder icon from Flutter web assets for now
           cp web/icons/Icon-192.png AppDir/danger_browser.png
           cp web/icons/Icon-192.png AppDir/usr/share/icons/hicolor/256x256/apps/danger_browser.png
@@ -79,7 +86,7 @@ jobs:
         run: |
           wget -O appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x appimagetool
-          ./appimagetool AppDir DangerBrowser-x86_64.AppImage
+          ./appimagetool --appimage-extract-and-run AppDir DangerBrowser-x86_64.AppImage
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
