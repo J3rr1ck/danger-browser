@@ -24,35 +24,56 @@ DangerBrowser is a modern, high-performance web browser built with Flutter, feat
 
 ## Requirements 🛠️
 
-### Linux
-- **Flutter SDK**
-- **CEF SDK** (handled by `scripts/download_cef.sh`)
-- **Ollama** (for AI features)
-- **xclip** (for clipboard support)
-- **Clang/LLVM** (for building the custom C++ backend)
+### Linux Dependencies
+- **Flutter SDK**: [Install Flutter](https://docs.flutter.dev/get-started/install/linux)
+- **CEF SDK**: Handled automatically via `scripts/download_cef.sh`.
+- **Ollama**: Must be installed and running (`ollama serve`) for AI features.
+- **System Libraries**: `libgtk-3-dev`, `liblzma-dev`, `libgcrypt20-dev`, `libatk1.0-dev`.
+- **Build Tools**: `clang`, `cmake`, `ninja-build`, `pkg-config`.
+- **Utilities**: `xclip` (for clipboard support).
 
-### AI Models
-For full vision support, ensure you have a VLM pulled in Ollama:
+### Local AI Setup
+DangerBrowser relies on a local Ollama instance. Ensure it's running:
+```bash
+# In a separate terminal
+ollama serve
+```
+
+For full multimodal (Vision) support, pull a compatible model:
 ```bash
 ollama pull ministral-3:8b
 # or
 ollama pull llama3.2-vision
 ```
 
-## Getting Started 🏁
+## Build & Development 🏁
 
-1. **Download CEF SDK**:
-   ```bash
-   bash scripts/download_cef.sh
-   ```
-2. **Build CEF Wrapper**:
-   ```bash
-   bash scripts/build_cef_wrapper.sh
-   ```
-3. **Run the App**:
-   ```bash
-   flutter run -d linux
-   ```
+### 1. Initialize the environment
+Download the required Chromium Embedded Framework SDK:
+```bash
+bash scripts/download_cef.sh
+```
+
+### 2. Build the C++ DLL Wrapper
+This builds the necessary static library for the custom Linux backend using Clang:
+```bash
+bash scripts/build_cef_wrapper.sh
+```
+
+### 3. Build/Run the Flutter Application
+**Debug Mode**:
+```bash
+flutter run -d linux
+```
+
+**Release Build**:
+```bash
+flutter build linux --release
+```
+
+## AppImage Build (Experimental) 📦
+
+A GitHub Action is provided to automatically generate AppImages on every push to the `master` branch. You can find the artifacts in the "Actions" tab of your repository.
 
 ## Local AI Configuration 🧠
 

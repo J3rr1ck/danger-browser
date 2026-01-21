@@ -1,0 +1,49 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libgcrypt20-dev \
+            libatk1.0-dev libx11-xcb-dev libxcb-dri3-dev \
+            libxcb-present-dev libxshmfence-dev \
+            libasound2-dev libnss3-dev
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Download CEF SDK
+        run: bash scripts/download_cef.sh
+
+      - name: Build CEF Wrapper
+        run: bash scripts/build_cef_wrapper.sh
+
+      - name: Flutter build Linux
+        run: flutter build linux --release
+
+      - name: Package Release
+        run: |
+          mkdir -p release
+          cp -r build/linux/x64/release/bundle/* release/
+          tar -czvf danger-browser-linux.tar.gz release/
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: danger-browser-linux
+          path: danger-browser-linux.tar.gz
