@@ -52,6 +52,9 @@ jobs:
           mv AppDir/usr/bin/lib/* AppDir/usr/lib/
           rmdir AppDir/usr/bin/lib
           
+          # Move libapp.so to usr/lib if it's not already there
+          find AppDir/usr/bin -name "libapp.so" -exec mv {} AppDir/usr/lib/ \;
+          
           cp -r linux/cef/sdk/Release/libcef.so AppDir/usr/lib/
           cp -r linux/cef/sdk/Resources/* AppDir/usr/bin/
           
@@ -71,8 +74,9 @@ jobs:
           SELF=\$(readlink -f "\$0")
           HERE=\${SELF%/*}
           export PATH="\$HERE/usr/bin:\$PATH"
-          export LD_LIBRARY_PATH="\$HERE/usr/lib:\$HERE/usr/bin:\$LD_LIBRARY_PATH"
-          exec "\$HERE/usr/bin/danger_browser" "\$@"
+          export LD_LIBRARY_PATH="\$HERE/usr/lib:\$HERE/usr/bin/lib:\$HERE/usr/bin:\$LD_LIBRARY_PATH"
+          # Ensure libapp.so is found by the engine
+          exec "\$HERE/usr/bin/danger_browser" --aot-shared-library-name="\$HERE/usr/lib/libapp.so" "\$@"
           EOF
           chmod +x AppDir/AppRun
           
