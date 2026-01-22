@@ -71,15 +71,14 @@ jobs:
           Categories=Network;WebBrowser;
           EOF
           
-          # 5. AppRun script
-          cat > AppDir/AppRun <<EOF
+          # 5. AppRun script - Literal EOF to avoid shell expansion
+          cat > AppDir/AppRun <<'EOF'
           #!/bin/sh
           HERE="$(dirname "$(readlink -f "$0")")"
           export PATH="$HERE/usr/bin:$PATH"
           export LD_LIBRARY_PATH="$HERE/usr/lib:$HERE/usr/bin/lib:$LD_LIBRARY_PATH"
           
           echo "Launching from $HERE"
-          # Use explicit absolute path inside AppImage
           exec "$HERE/usr/bin/danger_browser" --aot-shared-library-name="$HERE/usr/lib/libapp.so" "$@"
           EOF
           chmod +x AppDir/AppRun
@@ -88,8 +87,9 @@ jobs:
           cp web/icons/Icon-192.png AppDir/danger_browser.png
           cp web/icons/Icon-192.png AppDir/usr/share/icons/hicolor/256x256/apps/danger_browser.png
           
-          echo "Final AppDir structure:"
-          find AppDir -maxdepth 3
+          echo "Final AppDir content check:"
+          ls -F AppDir/usr/bin/
+          ls -F AppDir/usr/lib/
 
       - name: Build AppImage
         run: |
