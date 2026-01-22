@@ -27,72 +27,26 @@ jobs:
         with:
           channel: 'stable'
 
+      - name: Install fastforge
+        run: dart pub global activate fastforge
+
       - name: Download CEF SDK
         run: bash scripts/download_cef.sh
 
       - name: Build CEF Wrapper
         run: bash scripts/build_cef_wrapper.sh
 
-      - name: Flutter build Linux
-        run: flutter build linux --release
-
-      - name: Prepare AppImage (AppDir)
+      - name: Distribute AppImage
         run: |
-          mkdir -p AppDir/usr/bin
-          mkdir -p AppDir/usr/lib
-          mkdir -p AppDir/usr/share/applications
-          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
-          
-          # 1. Copy Flutter bundle EXACTLY as is to usr/bin
-          # This keeps danger_browser, lib/libapp.so, and data/ in relative sync
-          cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
-          rm -rf build/
-          
-          # 2. Add CEF libs to the EXISTING usr/bin/lib directory
-          cp -P linux/cef/sdk/Release/*.so* AppDir/usr/bin/lib/
-          # Copy CEF resources to usr/bin
-          cp -r linux/cef/sdk/Resources/* AppDir/usr/bin/
-          
-          # 3. Desktop Entry
-          cat > AppDir/danger_browser.desktop <<EOF
-          [Desktop Entry]
-          Name=DangerBrowser
-          Exec=danger_browser
-          Icon=danger_browser
-          Type=Application
-          Categories=Network;WebBrowser;
-          EOF
-          
-          # 4. AppRun script - Literal EOF
-          cat > AppDir/AppRun <<'EOF'
-          #!/bin/sh
-          HERE="$(dirname "$(readlink -f "$0")")"
-          export PATH="$HERE/usr/bin:$PATH"
-          # Point to where we put all the .so files
-          export LD_LIBRARY_PATH="$HERE/usr/bin/lib:$LD_LIBRARY_PATH"
-          
-          echo "Launching DangerBrowser from $HERE"
-          # Run the binary. Since lib/libapp.so is relative to it, it should just work.
-          exec "$HERE/usr/bin/danger_browser" "$@"
-          EOF
-          chmod +x AppDir/AppRun
-          
-          # 5. Icon
-          cp web/icons/Icon-192.png AppDir/danger_browser.png
-          cp web/icons/Icon-192.png AppDir/usr/share/icons/hicolor/256x256/apps/danger_browser.png
-          
-          echo "Final AppDir content check:"
-          find AppDir -maxdepth 3
-
-      - name: Build AppImage
-        run: |
-          rm -rf linux/cef/sdk/ # Free space
-          wget -O appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
-          chmod +x appimagetool
-          ./appimagetool --appimage-extract-and-run AppDir DangerBrowser-x86_64.AppImage
+          # Fastforge might need libapp.so in specific place or it handles it.
+          # Since we have a custom CEF integration, we might still need to bundle manually 
+          # IF fastforge doesn't pick up the custom CEF libs.
+          # Let's try standard fastforge first.
+          export PATH="$PATH":"$HOME/.pub-cache/bin"
+          fastforge distribute --release-name production --job-name release-linux
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: danger-browser-appimage
-          path: DangerBrowser-x86_64.AppImage
+          path: dist/production/**/*
