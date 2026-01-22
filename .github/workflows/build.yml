@@ -43,25 +43,17 @@ jobs:
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
           
-          # 1. Flutter Bundle
+          # 1. Copy Flutter bundle EXACTLY as is to usr/bin
+          # This keeps danger_browser, lib/libapp.so, and data/ in relative sync
           cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
           rm -rf build/
           
-          # 2. Extract and Move Libs
-          # Move libflutter_linux_gtk.so etc to usr/lib
-          mv AppDir/usr/bin/lib/* AppDir/usr/lib/ 2>/dev/null || true
-          rmdir AppDir/usr/bin/lib 2>/dev/null || true
-          
-          # Move libapp.so specifically to usr/lib
-          find AppDir/usr/bin -name "libapp.so" -exec mv {} AppDir/usr/lib/ \;
-          
-          # 3. CEF Components
-          # Copy only the SO libs to usr/lib
-          cp -P linux/cef/sdk/Release/*.so* AppDir/usr/lib/
-          # Copy Resources to usr/bin (where the executable is)
+          # 2. Add CEF libs to the EXISTING usr/bin/lib directory
+          cp -P linux/cef/sdk/Release/*.so* AppDir/usr/bin/lib/
+          # Copy CEF resources to usr/bin
           cp -r linux/cef/sdk/Resources/* AppDir/usr/bin/
           
-          # 4. Desktop Entry
+          # 3. Desktop Entry
           cat > AppDir/danger_browser.desktop <<EOF
           [Desktop Entry]
           Name=DangerBrowser
@@ -71,29 +63,30 @@ jobs:
           Categories=Network;WebBrowser;
           EOF
           
-          # 5. AppRun script - Literal EOF to avoid shell expansion
+          # 4. AppRun script - Literal EOF
           cat > AppDir/AppRun <<'EOF'
           #!/bin/sh
           HERE="$(dirname "$(readlink -f "$0")")"
           export PATH="$HERE/usr/bin:$PATH"
-          export LD_LIBRARY_PATH="$HERE/usr/lib:$HERE/usr/bin/lib:$LD_LIBRARY_PATH"
+          # Point to where we put all the .so files
+          export LD_LIBRARY_PATH="$HERE/usr/bin/lib:$LD_LIBRARY_PATH"
           
-          echo "Launching from $HERE"
-          exec "$HERE/usr/bin/danger_browser" --aot-shared-library-name="$HERE/usr/lib/libapp.so" "$@"
+          echo "Launching DangerBrowser from $HERE"
+          # Run the binary. Since lib/libapp.so is relative to it, it should just work.
+          exec "$HERE/usr/bin/danger_browser" "$@"
           EOF
           chmod +x AppDir/AppRun
           
-          # 6. Icon
+          # 5. Icon
           cp web/icons/Icon-192.png AppDir/danger_browser.png
           cp web/icons/Icon-192.png AppDir/usr/share/icons/hicolor/256x256/apps/danger_browser.png
           
           echo "Final AppDir content check:"
-          ls -F AppDir/usr/bin/
-          ls -F AppDir/usr/lib/
+          find AppDir -maxdepth 3
 
       - name: Build AppImage
         run: |
-          rm -rf linux/cef/sdk/ # Free massive space before mksquashfs
+          rm -rf linux/cef/sdk/ # Free space
           wget -O appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x appimagetool
           ./appimagetool --appimage-extract-and-run AppDir DangerBrowser-x86_64.AppImage
